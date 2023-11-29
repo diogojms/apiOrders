@@ -14,9 +14,8 @@ exports.createOrder = async (req, res) => {
 
     let totalPurchasePrice = 0;
 
-    for (const item of items) {
-      const { type, itemID, quantity } = item;
-
+    for (const item of items) { 
+        const { type, itemID, quantity } = item;
       try {
         let itemTotalPrice = 0;
 
