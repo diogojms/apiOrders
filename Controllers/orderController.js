@@ -3,7 +3,56 @@
 const Purchase = require('../models/order');
 const Product = require('../models/products');
 const Service = require('../models/service');
-
+/**
+ * @swagger
+ * /orders:
+ *   post:
+ *     summary: Create a new order
+ *     description: Endpoint to create a new order with the provided items.
+ *     tags:
+ *       - Orders
+ *     requestBody:
+ *       description: Order creation data
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     type:
+ *                       type: string
+ *                       enum: [product, service]
+ *                     itemID:
+ *                       type: string
+ *                     quantity:
+ *                       type: integer
+ *                       minimum: 1
+ *             required:
+ *               - items
+ *     responses:
+ *       '200':
+ *         description: Order created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [success]
+ *                 purchase:
+ *                   type: object
+ *                   // Define your purchase properties here
+ *       '400':
+ *         description: Bad Request - Invalid or missing input data
+ *       '500':
+ *         description: Internal Server Error - Failed to create the order
+ */
 exports.createOrder = async (req, res) => {
   try {
     const { items } = req.body;
@@ -63,3 +112,4 @@ exports.createOrder = async (req, res) => {
     res.status(500).json({ msg: 'Erro interno do servidor' });
   }
 };
+
