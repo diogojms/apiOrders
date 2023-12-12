@@ -5,6 +5,7 @@ var bodyParser = require('body-parser')
 // const swaggerAutogen = require('swagger-autogen')()
 // const swaggerUi = require('swagger-ui-express')
 // const swaggerFile = require('./swagger_output.json')
+const { specs, swaggerUi } = require('./swagger');
 
 require('dotenv').config();
 
@@ -24,6 +25,7 @@ app.use(bodyParser.urlencoded({ extended: false })); //parse application/x-www-f
 
 // routes
 app.use('/order', require('./Routes/ordersRoutes'));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
 let port=8085;
 app.listen(port, () => {
