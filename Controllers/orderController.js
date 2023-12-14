@@ -1,8 +1,8 @@
 // controllers/orderController.js
 
-const Purchase = require('../models/order');
-const Product = require('../models/products');
-const Service = require('../models/service');
+const Purchase = require('../Models/order');
+const Product = require('../Models/products');
+const Service = require('../Models/service');
 /**
  * @swagger
  * /orders:
