@@ -1,16 +1,51 @@
 'order strict'
 
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const OrderSchema = new mongoose.Schema(
-  {
-    productID: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-    serviceID: { type: mongoose.Schema.Types.ObjectId, ref: 'Service', required: true },
-    quantity: { type: Number, required: true },
-    totalPrice: { type: Number, required: true },
+const OrderSchema = new Schema({
+  items: [
+    {
+      productId: {
+        type: Schema.Types.ObjectId,
+        ref: "Product",
+      },
+      serviceId: {
+        type: Schema.Types.ObjectId,
+        ref: "Service",
+      },
+      quantity: {
+        type: Number,
+        required: function () {
+          return this.productId ? true : false;
+        },
+      },
+    },
+  ],
+  total: {
+    type: Number,
+    required: true,
   },
-  { timestamps: true }
-);
+  clientId: {
+    type: Schema.Types.ObjectId,
+    ref: "Client",
+    required: true,
+  },
+  paymentType: {
+    type: String,
+    required: true,
+  },
+  storeId: {
+    type: Schema.Types.ObjectId,
+    ref: "Store",
+    required: false,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 
 const Order = mongoose.model('Order', OrderSchema);
 

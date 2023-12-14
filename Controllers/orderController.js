@@ -1,115 +1,115 @@
-// controllers/orderController.js
+const { log } = require('console');
+const Order = require('../Models/order');
+const { default: axios } = require("axios");
 
-const Purchase = require('../Models/order');
-const Product = require('../Models/products');
-const Service = require('../Models/service');
-/**
- * @swagger
- * /orders:
- *   post:
- *     summary: Create a new order
- *     description: Endpoint to create a new order with the provided items.
- *     tags:
- *       - Orders
- *     requestBody:
- *       description: Order creation data
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     type:
- *                       type: string
- *                       enum: [product, service]
- *                     itemID:
- *                       type: string
- *                     quantity:
- *                       type: integer
- *                       minimum: 1
- *             required:
- *               - items
- *     responses:
- *       '200':
- *         description: Order created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 status:
- *                   type: string
- *                   enum: [success]
- *                 purchase:
- *                   type: object
- *                   // Define your purchase properties here
- *       '400':
- *         description: Bad Request - Invalid or missing input data
- *       '500':
- *         description: Internal Server Error - Failed to create the order
- */
-exports.createOrder = async (req, res) => {
+exports.getAllOrders = async (req, res) => {
   try {
-    const { items } = req.body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ msg: 'A compra deve conter pelo menos um item' });
-    }
-
-    let totalPurchasePrice = 0;
-
-    for (const item of items) { 
-        const { type, itemID, quantity } = item;
-      try {
-        let itemTotalPrice = 0;
-
-        if (type === 'product') {
-          const product = await Product.findById(itemID);
-          if (!product) {
-            return res.status(400).json({ msg: `Produto com ID ${itemID} não encontrado` });
-          }
-
-          if (product.stock < quantity) {
-            return res.status(400).json({
-              msg: `Quantidade solicitada para o produto ${product.name} excede o estoque disponível`,
-            });
-          }
-
-          itemTotalPrice = quantity * product.price;
-          totalPurchasePrice += itemTotalPrice;
-
-          await Product.findByIdAndUpdate(itemID, { $inc: { stock: -quantity } });
-        } else if (type === 'service') {
-          const service = await Service.findById(itemID);
-          if (!service) {
-            return res.status(400).json({ msg: `Serviço com ID ${itemID} não encontrado` });
-          }
-
-          itemTotalPrice = quantity * service.price;
-          totalPurchasePrice += itemTotalPrice;
-        } else {
-          return res.status(400).json({ msg: `Tipo de item inválido: ${type}` });
-        }
-      } catch (error) {
-        console.error('Erro ao processar item:', error);
-        return res.status(500).json({ msg: 'Erro interno do servidor ao processar um item' });
-      }
-    }
-
-    const purchase = await Purchase.create({
-      items,
-      totalPrice: totalPurchasePrice,
-    });
-
-    res.json({ status: 'success', purchase });
+    const orders = await Order.find();
+    res.json({ status: 200, message: "Orders", data: orders });
   } catch (error) {
-    console.error('Erro ao criar compra:', error);
-    res.status(500).json({ msg: 'Erro interno do servidor' });
+    console.error(error);
+    res.status(500).json({ status: 500, message: "Error fetching orders", data: {} });
   }
 };
 
+exports.getOrderById = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      res.status(404).json({ status: 404, message: "Order not found", data: {} });
+    } else {
+      res.json({ status: 200, message: "Order", data: order });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 500, message: "Error fetching order", data: {} });
+  }
+};
+
+exports.createOrder = async (req, res) => {
+  try {
+    const newOrder = new Order(req.body);
+    const savedOrder = await newOrder.save();
+    const token = req.headers.authorization;
+
+    const updateStockPromises = req.body.items.map(async (item) => {
+      const quantityUsed = item.quantity || 1;
+      const { productId, serviceId } = item;
+      try {
+        if (productId){
+           const stock = await axios.post(
+          `http://${process.env.PRODUCTS_URI}:8083/stock/EditStock`,
+          {
+            ProductID: productId,
+            newQuantity: quantityUsed,
+          },
+          {
+            headers: {
+              Authorization: token,
+            },
+          }
+        );
+        return stock.data; 
+        }
+        else if (serviceId){
+          const service = await axios.get(
+            `http://${process.env.SERVICES_URI}:8084/service/ReadService/`,
+            {
+              params: {
+                serviceID: serviceId,
+              },
+            }
+          );
+          if (!service.data || !service.data.service) {
+            throw new Error("Service not found");
+          }
+          return service.data.service;
+        }
+        else {
+          throw new Error("Invalid item in the order");
+        }
+      } catch (error) {
+        console.error(error);
+        throw new Error("Error updating products stock");
+      }
+    });
+
+    const updatedStocks = await Promise.all(updateStockPromises);
+
+    res.json({ status: 200, message: "Order created", data: { order: savedOrder, stocks: updatedStocks } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 500, message: "Error creating order", data: {} });
+  }
+};
+
+
+exports.updateOrder = async (req, res) => {
+  try {
+    const updatedOrder = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true });
+
+    if (!updatedOrder) {
+      res.status(404).json({ status: 404, message: "Order not found", data: {} });
+    } else {
+      res.json({ status: 200, message: "Order updated", data: updatedOrder });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 500, message: "Error updating order", data: {} });
+  }
+};
+
+exports.deleteOrder = async (req, res) => {
+  try {
+    const deletedOrder = await Order.findByIdAndDelete(req.params.id);
+
+    if (!deletedOrder) {
+      res.status(404).json({ status: 404, message: "Order not found", data: {} });
+    } else {
+      res.json({ status: 200, message: "Order deleted", data: deletedOrder });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 500, message: "Error deleting order", data: {} });
+  }
+};
