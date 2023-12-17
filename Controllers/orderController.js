@@ -4,7 +4,7 @@ const { default: axios } = require("axios");
 
 /**
  * @swagger
- * /orders/getAllOrders:
+ * /ReadOrders:
  *   get:
  *     summary: Get all orders
  *     description: Retrieve a list of all orders.
@@ -38,7 +38,7 @@ exports.ReadOrders = async (req, res) => {
 
 /**
  * @swagger
- * /orders/{id}:
+ * /ReadOrder:
  *   get:
  *     summary: Get order by ID
  *     description: Retrieve an order by its ID.
@@ -101,7 +101,7 @@ exports.ReadOrder = async (req, res) => {
 
 /**
  * @swagger
- * /orders:
+ * /CreateOrder:
  *   post:
  *     summary: Create a new order
  *     description: Create a new order with the provided items.
@@ -211,7 +211,7 @@ exports.createOrder = async (req, res) => {
 
 /**
  * @swagger
- * /orders/{id}:
+ * /EditOrder:
  *   put:
  *     summary: Update an existing order
  *     description: Update an existing order with the provided data.
@@ -348,7 +348,7 @@ exports.editOrder = async (req, res) => {
 
 /**
  * @swagger
- * /orders/{id}:
+ * /RemoveOrder:
  *   delete:
  *     summary: Delete an existing order
  *     description: Delete an existing order by ID.
