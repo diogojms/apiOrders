@@ -21,6 +21,17 @@ function checkToken(req, res, next) {
     }
 }
 
+function isAdmin(req, res, next) {
+    const usertoken = req.headers.authorization;
+    const token = usertoken.split(' ');
+    const tokenData = jwt.verify(token[1], process.env.SECRET);
+
+    if (tokenData.role == 3)
+        next()
+    else
+        res.status(403).json()
+}
+
 function isClient(req, res, next) {
     const usertoken = req.headers.authorization;
     const token = usertoken.split(' ');
@@ -32,8 +43,10 @@ function isClient(req, res, next) {
         res.status(403).json() 
 }
 
-router.post('/CreateOrder', checkToken, isClient, orderController.createOrder)
-// router.get('/ReadOrder/', orderController.ReadOrder)
-// router.get('/ReadOrders', orderController.ReadOrders)
+router.post('/CreateOrder', checkToken, orderController.createOrder)
+router.post('/EditOrder', checkToken, orderController.editOrder)
+router.post('/RemoveOrder', checkToken, isAdmin, orderController.RemoveOrder)
+router.get('/ReadOrder', checkToken, orderController.ReadOrder)
+router.get('/ReadOrders', checkToken, orderController.ReadOrders)
 
 module.exports = router;
