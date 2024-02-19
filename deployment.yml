@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pcc-orders
+  labels:
+    app: pcc-orders
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: pcc-orders
+  template:
+    metadata:
+      labels:
+        app: pcc-orders
+    spec:
+      containers:
+        - name: pcc-orders
+          image: diogojms/pcc_orders:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8085
+          env:
+            - name: MONGODB_URI
+              value: "mongodb+srv://DriveCleaner:DriveCleanerG7@cluster0.bj3pzfe.mongodb.net/User"
+            - name: SECRET
+              value: "jfcnbjsnwdelwjcnewdlejbsfew"
+            - name: LOGS_URI
+              value: "guest:guest@localhost:5672/"
+            - name: PRODUCTS_URI
+              value: "products"
+            - name: SERVICES_URI
+              value: "services"
