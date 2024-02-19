@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pcc-orders
+  labels:
+    app: pcc-orders
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 8085
+  selector:
+    app: pcc-orders
+  sessionAffinity: None
