@@ -22,7 +22,7 @@ spec:
             - containerPort: 8085
           env:
             - name: MONGODB_URI
-              value: "mongodb+srv://DriveCleaner:DriveCleanerG7@cluster0.bj3pzfe.mongodb.net/User"
+              value: "mongodb+srv://DriveCleaner:DriveCleanerG7@cluster0.bj3pzfe.mongodb.net/Orders"
             - name: SECRET
               value: "jfcnbjsnwdelwjcnewdlejbsfew"
             - name: LOGS_URI
