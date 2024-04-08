@@ -43,10 +43,10 @@ function isClient(req, res, next) {
         res.status(403).json() 
 }
 
-router.post('/CreateOrder', checkToken, orderController.createOrder)
-router.post('/EditOrder', checkToken, orderController.editOrder)
-router.post('/RemoveOrder', checkToken, isAdmin, orderController.RemoveOrder)
-router.get('/ReadOrder', checkToken, orderController.ReadOrder)
-router.get('/ReadOrders', checkToken, orderController.ReadOrders)
+router.post('/', checkToken, orderController.createOrder)
+router.put('/:id', checkToken, orderController.editOrder)
+router.delete('/:id', checkToken, isAdmin, orderController.RemoveOrder)
+router.get('/:id', checkToken, orderController.ReadOrder)
+router.get('/', checkToken, orderController.ReadOrders)
 
 module.exports = router;

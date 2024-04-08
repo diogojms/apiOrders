@@ -10,6 +10,19 @@ const { default: axios } = require("axios");
  *     description: Retrieve a list of all orders.
  *     tags:
  *       - Orders
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         required: false
+ *         description: Page number for pagination
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         description: Number of items per page
+ *         schema:
+ *           type: integer
  *     responses:
  *       '200':
  *         description: List of orders
@@ -28,12 +41,37 @@ const { default: axios } = require("axios");
  *                   type: array
  *                   items:
  *                     $ref: '#/components/schemas/Order'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: number
+ *                     totalPages:
+ *                       type: number
+ *                     totalOrders:
+ *                       type: number
  *       '500':
  *         description: Internal Server Error - Failed to fetch orders
  */
 exports.ReadOrders = async (req, res) => {
-  const orders = await Order.find();
-  res.json({ status: 'success', orders: orders })
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  if (limit > 100) {
+    return res.status(400).json({ message: 'Limit cannot exceed 100' });
+  }
+  const startIndex = (page - 1) * limit;
+  const endIndex = page * limit;
+
+  const orders = await Order.find().skip(startIndex).limit(limit);
+  const totalOrders = await Order.countDocuments();
+
+  const pagination = {
+    currentPage: page,
+    totalPages: Math.ceil(totalOrders / limit),
+    totalOrders: totalOrders
+  };
+
+  res.json({ status: 'success', orders: orders, pagination: pagination });
 }
 
 /**
@@ -85,13 +123,13 @@ exports.ReadOrders = async (req, res) => {
  *         description: Internal Server Error - Failed to fetch order
  */
 exports.ReadOrder = async (req, res) => {
-  const { orderID } = req.query;
+  const { id } = req.params;
 
-  if (!orderID) {
+  if (!id) {
       return res.status(400).json({ msg: 'Invalid order ID' });
   }
 
-  const order = await Order.findById(orderID);
+  const order = await Order.findById(id);
   if (!order) {
       return res.status(404).json({ msg: 'Order not found' });
   }
@@ -159,10 +197,9 @@ exports.createOrder = async (req, res) => {
       const { productId, serviceId } = item;
       try {
         if (productId) {
-          const stock = await axios.post(
-            `http://${process.env.PRODUCTS_URI}:8083/stock/EditStock`,
+          const stock = await axios.put(
+            `http://${process.env.PRODUCTS_URI}:8083/stock/${productId}`,
             {
-              ProductID: productId,
               newQuantity: quantityUsed,
             },
             {
@@ -174,7 +211,7 @@ exports.createOrder = async (req, res) => {
           return stock.data;
         } else if (serviceId) {
           const service = await axios.get(
-            `http://${process.env.SERVICES_URI}:8084/service/ReadService/`,
+            `http://${process.env.SERVICES_URI}:8084/service/${serviceId}`,
             {
               params: {
                 serviceID: serviceId,
@@ -211,7 +248,7 @@ exports.createOrder = async (req, res) => {
 
 /**
  * @swagger
- * /EditOrder:
+ * /EditOrder/{id}:
  *   put:
  *     summary: Update an existing order
  *     description: Update an existing order with the provided data.
@@ -278,19 +315,19 @@ exports.createOrder = async (req, res) => {
  */
 exports.editOrder = async (req, res) => {
   try {
-    const { orderId } = req.query; 
+    const { id } = req.params; 
 
-    if (!orderId) {
+    if (!id) {
       return res.status(400).json({ status: 400, message: 'Invalid order ID', data: {} });
     }
 
-    const existingOrder = await Order.findById(orderId);
+    const existingOrder = await Order.findById(id);
 
     if (!existingOrder) {
       return res.status(404).json({ status: 404, message: 'Order not found', data: {} });
     }
 
-    const updatedOrder = await Order.findByIdAndUpdate(orderId, req.body, { new: true });
+    const updatedOrder = await Order.findByIdAndUpdate(id, req.body, { new: true });
 
     const token = req.headers.authorization;
     const updateStockPromises = req.body.items.map(async (item) => {
@@ -298,27 +335,21 @@ exports.editOrder = async (req, res) => {
       const { productId, serviceId } = item;
       try {
         if (productId) {
-          const stock = await axios.post(
-            `http://${process.env.PRODUCTS_URI}:8083/stock/EditStock`,
+            const stock = await axios.put(
+            `http://${process.env.PRODUCTS_URI}:8083/stock/${productId}`,
             {
-              ProductID: productId,
               newQuantity: quantityUsed,
             },
             {
               headers: {
-                Authorization: token,
+              Authorization: token,
               },
             }
-          );
+            );
           return stock.data;
         } else if (serviceId) {
           const service = await axios.get(
-            `http://${process.env.SERVICES_URI}:8084/service/ReadService/`,
-            {
-              params: {
-                serviceID: serviceId,
-              },
-            }
+            `http://${process.env.SERVICES_URI}:8084/service/${serviceId}`,
           );
           if (!service.data || !service.data.service) {
             throw new Error("Service not found");
@@ -407,13 +438,13 @@ exports.editOrder = async (req, res) => {
  *                 data: {}
  */
 exports.RemoveOrder = async (req, res) => {
-  const { orderID } = req.query;
+  const { id } = req.params;
 
-  if (!orderID) {
+  if (!id) {
       return res.status(400).json({ msg: 'Invalid order ID' });
   }
 
-  const order = await Order.findById(orderID);
+  const order = await Order.findById(id);
 
   if (!order) {
       return res.status(404).json({ msg: 'Order not found' });
