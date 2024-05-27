@@ -1,5 +1,6 @@
 const { log } = require('console');
 const Order = require('../Models/order');
+const mongoose = require('mongoose');
 const { default: axios } = require("axios");
 
 /**
@@ -125,17 +126,23 @@ exports.ReadOrders = async (req, res) => {
 exports.ReadOrder = async (req, res) => {
   const { id } = req.params;
 
-  if (!id) {
-      return res.status(400).json({ msg: 'Invalid order ID' });
+  console.log(id);
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ msg: 'Invalid order ID' });
   }
 
-  const order = await Order.findById(id);
-  if (!order) {
+  try {
+    const order = await Order.findById(id);
+    if (!order) {
       return res.status(404).json({ msg: 'Order not found' });
+    }
+    res.json({ status: 'success', order: order });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 500, message: 'Error fetching order', data: {} });
   }
-
-  res.json({ status: 'success', service: order})
-}
+};
 
 /**
  * @swagger
@@ -440,20 +447,24 @@ exports.editOrder = async (req, res) => {
 exports.RemoveOrder = async (req, res) => {
   const { id } = req.params;
 
-  if (!id) {
-      return res.status(400).json({ msg: 'Invalid order ID' });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ status: 400, message: 'Invalid order ID', data: {} });
   }
 
-  const order = await Order.findById(id);
+  try {
+    const order = await Order.findById(id);
+    if (!order) {
+      return res.status(404).json({ status: 404, message: 'Order not found', data: {} });
+    }
 
-  if (!order) {
-      return res.status(404).json({ msg: 'Order not found' });
+    await Order.deleteOne({ _id: id });
+    res.json({ status: 200, message: 'Order deleted successfully', data: order });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 500, message: 'Error deleting order', data: {} });
   }
+};
 
-  await Order.deleteOne(order);
-
-  res.json({ status: 'success', order: order});
-}
 
 exports.ReadClientOrders = async (req, res) => {
   const { clientId } = req.params;
@@ -462,11 +473,14 @@ exports.ReadClientOrders = async (req, res) => {
 }
 
 exports.CountOrders = async (req, res) => {
-  const totalOrders = await Order.countDocuments();
-  const pagination = {
-    totalOrders: totalOrders
-  };
-  res.json({ pagination: pagination });
-}
+  try {
+    const totalOrders = await Order.countDocuments();
+    res.json({ status: 200, message: 'Count retrieved successfully', data: { totalOrders } });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ status: 500, message: 'Error counting orders', data: {} });
+  }
+};
+
 
 
