@@ -48,5 +48,7 @@ router.put('/:id', checkToken, orderController.editOrder)
 router.delete('/:id', checkToken, isAdmin, orderController.RemoveOrder)
 router.get('/:id', checkToken, orderController.ReadOrder)
 router.get('/', checkToken, orderController.ReadOrders)
+router.get('/client/:clientId', checkToken, orderController.ReadClientOrders)
+router.get('/count', checkToken, orderController.CountOrders)
 
 module.exports = router;

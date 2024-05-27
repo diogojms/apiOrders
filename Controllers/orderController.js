@@ -454,3 +454,19 @@ exports.RemoveOrder = async (req, res) => {
 
   res.json({ status: 'success', order: order});
 }
+
+exports.ReadClientOrders = async (req, res) => {
+  const { clientId } = req.params;
+  const orders = await Order.find({ clientId });
+  res.json(orders);
+}
+
+exports.CountOrders = async (req, res) => {
+  const totalOrders = await Order.countDocuments();
+  const pagination = {
+    totalOrders: totalOrders
+  };
+  res.json({ pagination: pagination });
+}
+
+
