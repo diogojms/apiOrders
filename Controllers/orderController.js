@@ -192,18 +192,139 @@ exports.ReadOrder = async (req, res) => {
  */
 exports.createOrder = async (req, res) => {
   try {
+    const token = req.headers.authorization;
+
+    // Validate input
+    if (!req.body.items || !Array.isArray(req.body.items) || req.body.items.length === 0) {
+      throw new Error("Items array is required and must not be empty");
+    }
+
+    if (!req.body.clientId || !req.body.storeId) {
+      throw new Error("Client ID and Store ID are required");
+    }
+
+    // Fetch client and store details
+    const clientResponse = await axios.get(
+      `http://${process.env.AUTH_URI}:8081/user/${req.body.clientId}`,
+      { headers: { Authorization: token } }
+    );
+    const storeResponse = await axios.get(
+      `http://${process.env.STORES_URI}:8086/stores/${req.body.storeId}`,
+      { headers: { Authorization: token } }
+    );
+
+    const client = clientResponse.data;
+    const store = storeResponse.data.store;
+
+    // Check if client and store data are correctly fetched
+    if (!client || !store) {
+      throw new Error("Failed to fetch client or store data");
+    }
+
+    // Initialize total
+    let total = 0;
+
+    // Fetch item details and calculate total
+    const itemDetailsPromises = req.body.items.map(async (item) => {
+      const { productId, serviceId, quantity } = item;
+      let name = '';
+      let price = 0;
+
+      if (productId) {
+        const productResponse = await axios.get(
+          `http://${process.env.PRODUCTS_URI}:8083/product/${productId}`,
+          {
+            headers: {
+              Authorization: token,
+            },
+          }
+        );
+        const product = productResponse.data.product;
+        name = product.name;
+        price = product.price;
+
+        // Validate price and quantity
+        if (typeof price !== 'number' || isNaN(price)) {
+          throw new Error(`Invalid price for product: ${JSON.stringify(product)}`);
+        }
+        if (typeof quantity !== 'number' || isNaN(quantity) || quantity <= 0) {
+          throw new Error(`Invalid quantity for product: ${JSON.stringify(item)}`);
+        }
+
+        total += price * quantity;
+      } else if (serviceId) {
+        const serviceResponse = await axios.get(
+          `http://${process.env.SERVICES_URI}:8084/service/${serviceId}`,
+          {
+            headers: {
+              Authorization: token,
+            },
+          }
+        );
+        const service = serviceResponse.data.service;
+        name = service.name;
+        price = service.price;
+
+        // Validate price
+        if (typeof price !== 'number' || isNaN(price)) {
+          throw new Error(`Invalid price for service: ${JSON.stringify(service)}`);
+        }
+
+        total += price;
+      } else {
+        throw new Error("Invalid item in the order");
+      }
+
+      return {
+        productId,
+        serviceId,
+        quantity,
+        name,
+        price,
+      };
+    });
+
+    const itemsWithDetails = await Promise.all(itemDetailsPromises);
+
+    // Log the calculated total
+    console.log("Calculated total:", total);
+
+    // Check if total is a valid number
+    if (isNaN(total)) {
+      throw new Error('Total calculation resulted in NaN');
+    }
+
+    // Get the current number of orders and increment it
+    const orderCount = await Order.countDocuments();
+    const orderNumber = orderCount + 1;
+
+    // Create new order with calculated total and client/store details
     const newOrder = new Order({
       ...req.body,
+      items: itemsWithDetails,
+      total,
+      client: {
+        _id: req.body.clientId,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+      },
+      store: {
+        _id: store._id,
+        name: store.name,
+        address: store.address,
+      },
+      order_number: orderNumber,
     });
 
     const savedOrder = await newOrder.save();
-    const token = req.headers.authorization;
 
-    const updateStockPromises = req.body.items.map(async (item) => {
+    // Update stock for products
+    const updateStockPromises = itemsWithDetails.map(async (item) => {
       const quantityUsed = item.quantity || 1;
-      const { productId, serviceId } = item;
-      try {
-        if (productId) {
+      const { productId } = item;
+      if (productId) {
+        try {
           const stock = await axios.put(
             `http://${process.env.PRODUCTS_URI}:8083/stock/${productId}`,
             {
@@ -216,26 +337,13 @@ exports.createOrder = async (req, res) => {
             }
           );
           return stock.data;
-        } else if (serviceId) {
-          const service = await axios.get(
-            `http://${process.env.SERVICES_URI}:8084/service/${serviceId}`,
-            {
-              params: {
-                serviceID: serviceId,
-              },
-            }
-          );
-          if (!service.data || !service.data.service) {
-            throw new Error("Service not found");
-          }
-          return service.data.service;
-        } else {
-          throw new Error("Invalid item in the order");
+        } catch (error) {
+          console.error(error);
+          throw new Error("Error updating products stock");
         }
-      } catch (error) {
-        console.error(error);
-        throw new Error("Error updating products stock");
       }
+      // No stock update needed for services in this case
+      return null;
     });
 
     const updatedStocks = await Promise.all(updateStockPromises);
@@ -247,11 +355,10 @@ exports.createOrder = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ status: 500, message: "Error creating order", data: {} });
+    res.status(500).json({ status: 500, message: "Error creating order", data: {} });
   }
 };
+
 
 /**
  * @swagger
