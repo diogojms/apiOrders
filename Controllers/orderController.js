@@ -575,9 +575,14 @@ exports.RemoveOrder = async (req, res) => {
 
 exports.ReadClientOrders = async (req, res) => {
   const { clientId } = req.params;
-  const orders = await Order.find({ clientId });
-  res.json(orders);
-}
+  try {
+    const orders = await Order.find({ "client._id": clientId });
+    res.json(orders);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 
 exports.CountOrders = async (req, res) => {
   try {
