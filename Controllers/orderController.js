@@ -319,39 +319,10 @@ exports.createOrder = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
-    // Update stock for products
-    const updateStockPromises = itemsWithDetails.map(async (item) => {
-      const quantityUsed = item.quantity || 1;
-      const { productId } = item;
-      if (productId) {
-        try {
-          const stock = await axios.put(
-            `http://${process.env.PRODUCTS_URI}:8083/stock/${productId}`,
-            {
-              newQuantity: quantityUsed,
-            },
-            {
-              headers: {
-                Authorization: token,
-              },
-            }
-          );
-          return stock.data;
-        } catch (error) {
-          console.error(error);
-          throw new Error("Error updating products stock");
-        }
-      }
-      // No stock update needed for services in this case
-      return null;
-    });
-
-    const updatedStocks = await Promise.all(updateStockPromises);
-
     res.json({
       status: 200,
       message: "Order created",
-      data: { order: savedOrder, stocks: updatedStocks },
+      data: { order: savedOrder },
     });
   } catch (error) {
     console.error(error);
