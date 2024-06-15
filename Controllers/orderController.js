@@ -430,6 +430,9 @@ exports.createOrderService = async (req, res) => {
       throw new Error("Total calculation resulted in NaN");
     }
 
+    const orderCount = await Order.countDocuments();
+    const orderNumber = orderCount + 1;
+
     // Create new order
     const newOrder = new Order({
       items: itemsWithDetails,
@@ -447,23 +450,15 @@ exports.createOrderService = async (req, res) => {
       },
       paymentType: req.body.paymentType,
       appointmentDate: req.body.appointmentDate,
-      order_number: req.body.order_number,
+      order_number: orderNumber,
     });
 
-    // Save the new order
-    newOrder.save((err, savedOrder) => {
-      if (err) {
-        console.error(err);
-        res
-          .status(500)
-          .json({ status: 500, message: "Error saving order", data: {} });
-      } else {
-        res.status(200).json({
-          status: 200,
-          message: "Order created successfully",
-          data: savedOrder,
-        });
-      }
+    const savedOrder = await newOrder.save();
+
+    res.json({
+      status: 200,
+      message: "Order created",
+      data: { order: savedOrder },
     });
   } catch (error) {
     console.error(error);
