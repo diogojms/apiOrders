@@ -1,6 +1,6 @@
-const { log } = require('console');
-const Order = require('../Models/order');
-const mongoose = require('mongoose');
+const { log } = require("console");
+const Order = require("../Models/order");
+const mongoose = require("mongoose");
 const { default: axios } = require("axios");
 
 /**
@@ -58,7 +58,7 @@ exports.ReadOrders = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   if (limit > 100) {
-    return res.status(400).json({ message: 'Limit cannot exceed 100' });
+    return res.status(400).json({ message: "Limit cannot exceed 100" });
   }
   const startIndex = (page - 1) * limit;
   const endIndex = page * limit;
@@ -69,11 +69,11 @@ exports.ReadOrders = async (req, res) => {
   const pagination = {
     currentPage: page,
     totalPages: Math.ceil(totalOrders / limit),
-    totalOrders: totalOrders
+    totalOrders: totalOrders,
   };
 
-  res.json({ status: 'success', orders: orders, pagination: pagination });
-}
+  res.json({ status: "success", orders: orders, pagination: pagination });
+};
 
 /**
  * @swagger
@@ -129,18 +129,20 @@ exports.ReadOrder = async (req, res) => {
   console.log(id);
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ msg: 'Invalid order ID' });
+    return res.status(400).json({ msg: "Invalid order ID" });
   }
 
   try {
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ msg: 'Order not found' });
+      return res.status(404).json({ msg: "Order not found" });
     }
-    res.json({ status: 'success', order: order });
+    res.json({ status: "success", order: order });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: 500, message: 'Error fetching order', data: {} });
+    res
+      .status(500)
+      .json({ status: 500, message: "Error fetching order", data: {} });
   }
 };
 
@@ -195,7 +197,11 @@ exports.createOrder = async (req, res) => {
     const token = req.headers.authorization;
 
     // Validate input
-    if (!req.body.items || !Array.isArray(req.body.items) || req.body.items.length === 0) {
+    if (
+      !req.body.items ||
+      !Array.isArray(req.body.items) ||
+      req.body.items.length === 0
+    ) {
       throw new Error("Items array is required and must not be empty");
     }
 
@@ -227,7 +233,7 @@ exports.createOrder = async (req, res) => {
     // Fetch item details and calculate total
     const itemDetailsPromises = req.body.items.map(async (item) => {
       const { productId, serviceId, quantity } = item;
-      let name = '';
+      let name = "";
       let price = 0;
 
       if (productId) {
@@ -244,11 +250,15 @@ exports.createOrder = async (req, res) => {
         price = product.price;
 
         // Validate price and quantity
-        if (typeof price !== 'number' || isNaN(price)) {
-          throw new Error(`Invalid price for product: ${JSON.stringify(product)}`);
+        if (typeof price !== "number" || isNaN(price)) {
+          throw new Error(
+            `Invalid price for product: ${JSON.stringify(product)}`
+          );
         }
-        if (typeof quantity !== 'number' || isNaN(quantity) || quantity <= 0) {
-          throw new Error(`Invalid quantity for product: ${JSON.stringify(item)}`);
+        if (typeof quantity !== "number" || isNaN(quantity) || quantity <= 0) {
+          throw new Error(
+            `Invalid quantity for product: ${JSON.stringify(item)}`
+          );
         }
 
         total += price * quantity;
@@ -266,8 +276,10 @@ exports.createOrder = async (req, res) => {
         price = service.price;
 
         // Validate price
-        if (typeof price !== 'number' || isNaN(price)) {
-          throw new Error(`Invalid price for service: ${JSON.stringify(service)}`);
+        if (typeof price !== "number" || isNaN(price)) {
+          throw new Error(
+            `Invalid price for service: ${JSON.stringify(service)}`
+          );
         }
 
         total += price;
@@ -291,7 +303,7 @@ exports.createOrder = async (req, res) => {
 
     // Check if total is a valid number
     if (isNaN(total)) {
-      throw new Error('Total calculation resulted in NaN');
+      throw new Error("Total calculation resulted in NaN");
     }
 
     // Get the current number of orders and increment it
@@ -326,10 +338,140 @@ exports.createOrder = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: 500, message: "Error creating order", data: {} });
+    res
+      .status(500)
+      .json({ status: 500, message: "Error creating order", data: {} });
   }
 };
 
+exports.createOrderService = async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+
+    // Validate input
+    if (
+      !req.body.items ||
+      !Array.isArray(req.body.items) ||
+      req.body.items.length === 0
+    ) {
+      throw new Error("Items array is required and must not be empty");
+    }
+
+    if (!req.body.clientId || !req.body.storeId) {
+      throw new Error("Client ID and Store ID are required");
+    }
+
+    // Fetch client and store details
+    const clientResponse = await axios.get(
+      `http://${process.env.AUTH_URI}:8081/user/${req.body.clientId}`,
+      { headers: { Authorization: token } }
+    );
+    const storeResponse = await axios.get(
+      `http://${process.env.STORES_URI}:8086/stores/${req.body.storeId}`,
+      { headers: { Authorization: token } }
+    );
+
+    const client = clientResponse.data;
+    const store = storeResponse.data.store;
+
+    // Check if client and store data are correctly fetched
+    if (!client || !store) {
+      throw new Error("Failed to fetch client or store data");
+    }
+
+    // Initialize total
+    let total = 0;
+
+    // Fetch item details and calculate total
+    const itemDetailsPromises = req.body.items.map(async (item) => {
+      const { serviceId } = item;
+      let name = "";
+      let price = 0;
+
+      if (serviceId) {
+        const serviceResponse = await axios.get(
+          `http://${process.env.SERVICES_URI}:8084/service/${serviceId}`,
+          {
+            headers: {
+              Authorization: token,
+            },
+          }
+        );
+        const service = serviceResponse.data.service;
+        name = service.name;
+        price = service.price;
+
+        // Validate price
+        if (typeof price !== "number" || isNaN(price)) {
+          throw new Error(
+            `Invalid price for service: ${JSON.stringify(service)}`
+          );
+        }
+
+        total += price;
+      } else {
+        throw new Error("Invalid item in the order");
+      }
+
+      return {
+        serviceId,
+        name,
+        price,
+      };
+    });
+
+    const itemsWithDetails = await Promise.all(itemDetailsPromises);
+
+    // Log the calculated total
+    console.log("Calculated total:", total);
+
+    // Check if total is a valid number
+    if (isNaN(total)) {
+      throw new Error("Total calculation resulted in NaN");
+    }
+
+    // Create new order
+    const newOrder = new Order({
+      items: itemsWithDetails,
+      total: total,
+      client: {
+        _id: client._id,
+        name: client.name,
+        email: client.email,
+        phone: client.phone,
+      },
+      store: {
+        _id: store._id,
+        name: store.name,
+        address: store.address,
+      },
+      paymentType: req.body.paymentType,
+      appointmentDate: req.body.appointmentDate,
+      order_number: req.body.order_number,
+    });
+
+    // Save the new order
+    newOrder.save((err, savedOrder) => {
+      if (err) {
+        console.error(err);
+        res
+          .status(500)
+          .json({ status: 500, message: "Error saving order", data: {} });
+      } else {
+        res.status(200).json({
+          status: 200,
+          message: "Order created successfully",
+          data: savedOrder,
+        });
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ status: 500, message: "Error creating order", data: {} });
+  }
+};
 
 /**
  * @swagger
@@ -400,19 +542,25 @@ exports.createOrder = async (req, res) => {
  */
 exports.editOrder = async (req, res) => {
   try {
-    const { id } = req.params; 
+    const { id } = req.params;
 
     if (!id) {
-      return res.status(400).json({ status: 400, message: 'Invalid order ID', data: {} });
+      return res
+        .status(400)
+        .json({ status: 400, message: "Invalid order ID", data: {} });
     }
 
     const existingOrder = await Order.findById(id);
 
     if (!existingOrder) {
-      return res.status(404).json({ status: 404, message: 'Order not found', data: {} });
+      return res
+        .status(404)
+        .json({ status: 404, message: "Order not found", data: {} });
     }
 
-    const updatedOrder = await Order.findByIdAndUpdate(id, req.body, { new: true });
+    const updatedOrder = await Order.findByIdAndUpdate(id, req.body, {
+      new: true,
+    });
 
     const token = req.headers.authorization;
     const updateStockPromises = req.body.items.map(async (item) => {
@@ -420,21 +568,21 @@ exports.editOrder = async (req, res) => {
       const { productId, serviceId } = item;
       try {
         if (productId) {
-            const stock = await axios.put(
+          const stock = await axios.put(
             `http://${process.env.PRODUCTS_URI}:8083/stock/${productId}`,
             {
               newQuantity: quantityUsed,
             },
             {
               headers: {
-              Authorization: token,
+                Authorization: token,
               },
             }
-            );
+          );
           return stock.data;
         } else if (serviceId) {
           const service = await axios.get(
-            `http://${process.env.SERVICES_URI}:8084/service/${serviceId}`,
+            `http://${process.env.SERVICES_URI}:8084/service/${serviceId}`
           );
           if (!service.data || !service.data.service) {
             throw new Error("Service not found");
@@ -453,12 +601,14 @@ exports.editOrder = async (req, res) => {
 
     res.json({
       status: 200,
-      message: 'Order updated',
+      message: "Order updated",
       data: { order: updatedOrder, stocks: updatedStocks },
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: 500, message: 'Error updating order', data: {} });
+    res
+      .status(500)
+      .json({ status: 500, message: "Error updating order", data: {} });
   }
 };
 
@@ -526,23 +676,32 @@ exports.RemoveOrder = async (req, res) => {
   const { id } = req.params;
 
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ status: 400, message: 'Invalid order ID', data: {} });
+    return res
+      .status(400)
+      .json({ status: 400, message: "Invalid order ID", data: {} });
   }
 
   try {
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ status: 404, message: 'Order not found', data: {} });
+      return res
+        .status(404)
+        .json({ status: 404, message: "Order not found", data: {} });
     }
 
     await Order.deleteOne({ _id: id });
-    res.json({ status: 200, message: 'Order deleted successfully', data: order });
+    res.json({
+      status: 200,
+      message: "Order deleted successfully",
+      data: order,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: 500, message: 'Error deleting order', data: {} });
+    res
+      .status(500)
+      .json({ status: 500, message: "Error deleting order", data: {} });
   }
 };
-
 
 exports.ReadClientOrders = async (req, res) => {
   const { clientId } = req.params;
@@ -554,16 +713,18 @@ exports.ReadClientOrders = async (req, res) => {
   }
 };
 
-
 exports.CountOrders = async (req, res) => {
   try {
     const totalOrders = await Order.countDocuments();
-    res.json({ status: 200, message: 'Count retrieved successfully', data: { totalOrders } });
+    res.json({
+      status: 200,
+      message: "Count retrieved successfully",
+      data: { totalOrders },
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ status: 500, message: 'Error counting orders', data: {} });
+    res
+      .status(500)
+      .json({ status: 500, message: "Error counting orders", data: {} });
   }
 };
-
-
-
