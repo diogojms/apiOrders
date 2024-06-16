@@ -74,6 +74,10 @@ const OrderSchema = new Schema({
     type: Date,
     required: false,
   },
+  location: {
+    type: String,
+    required: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

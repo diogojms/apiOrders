@@ -450,6 +450,7 @@ exports.createOrderService = async (req, res) => {
       },
       paymentType: req.body.paymentType,
       appointmentDate: req.body.appointmentDate,
+      location: req.body.location,
       order_number: orderNumber,
     });
 
