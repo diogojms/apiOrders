@@ -56,23 +56,23 @@ const { default: axios } = require("axios");
  */
 exports.ReadOrders = async (req, res) => {
   const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 20;
-  if (limit > 100) {
-    return res.status(400).json({ message: "Limit cannot exceed 100" });
-  }
+  const limit = parseInt(req.query.limit) || Number.MAX_SAFE_INTEGER;
   const startIndex = (page - 1) * limit;
-  const endIndex = page * limit;
 
-  const orders = await Order.find().skip(startIndex).limit(limit);
-  const totalOrders = await Order.countDocuments();
+  try {
+    const orders = await Order.find().skip(startIndex).limit(limit);
+    const totalOrders = await Order.countDocuments();
 
-  const pagination = {
-    currentPage: page,
-    totalPages: Math.ceil(totalOrders / limit),
-    totalOrders: totalOrders,
-  };
+    const pagination = {
+      currentPage: page,
+      totalPages: Math.ceil(totalOrders / limit),
+      totalOrders: totalOrders,
+    };
 
-  res.json({ status: "success", orders: orders, pagination: pagination });
+    res.json({ status: "success", orders: orders, pagination: pagination });
+  } catch (error) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
 };
 
 /**
